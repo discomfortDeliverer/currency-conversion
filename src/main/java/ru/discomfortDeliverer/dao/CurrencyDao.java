@@ -28,6 +28,7 @@ public class CurrencyDao {
             ResultSet resultSet = preparedStatement.executeQuery();
 
             while(resultSet.next()){
+
                 CurrencyDto currencyDto = new CurrencyDto();
                 currencyDto.setId(resultSet.getInt("id"));
                 currencyDto.setCode(resultSet.getString("code"));
