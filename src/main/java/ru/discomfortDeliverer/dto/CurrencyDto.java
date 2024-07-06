@@ -1,6 +1,6 @@
 package ru.discomfortDeliverer.dto;
 
-public class СurrencyDto {
+public class CurrencyDto {
     private Integer id;
     private String code;
     private String fullName;
