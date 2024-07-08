@@ -1,6 +1,8 @@
 package ru.discomfortDeliverer.dao;
 
 import ru.discomfortDeliverer.dto.CurrencyDto;
+import ru.discomfortDeliverer.dto.ExchangeByCodeDto;
+import ru.discomfortDeliverer.dto.ExchangeDto;
 import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
 import ru.discomfortDeliverer.models.Currency;
 import ru.discomfortDeliverer.models.Exchange;
@@ -135,5 +137,76 @@ public class ExchangeDao {
         currency.setSign(currencyDto.getSign());
 
         return currency;
+    }
+
+    public Exchange addExchangeRate(ExchangeByCodeDto exchangeByCodeDto) throws DataBaseAccessException {
+        String query = "INSERT INTO exchange_rates\n" +
+                "(base_currency_id, target_currency_id, rate)\n" +
+                "VALUES (?, ?, ?)";
+
+        try (Connection connection = DriverManager.getConnection(url);
+             PreparedStatement preparedStatement = connection.prepareStatement(
+                     query)) {
+            Optional<CurrencyDto> baseCurrency = new CurrencyDao()
+                    .findCurrencyByCode(exchangeByCodeDto.getBaseCurrencyCode());
+            Optional<CurrencyDto> targetCurrency = new CurrencyDao()
+                    .findCurrencyByCode(exchangeByCodeDto.getTargetCurrencyCode());
+
+            preparedStatement.setInt(1, baseCurrency.get().getId());
+            preparedStatement.setInt(2, targetCurrency.get().getId());
+            preparedStatement.setDouble(3, exchangeByCodeDto.getRate());
+
+            int affectedRows = preparedStatement.executeUpdate();
+
+            // Получаем последний вставленный id
+            ResultSet generatedKeys = preparedStatement.getGeneratedKeys();
+
+            if(generatedKeys.next()){
+                Integer lastInsertedId = generatedKeys.getInt(1);
+
+                // Возвращаем только что вставленную запись
+                ExchangeDto exchangeDto = findExchangeDtoById(lastInsertedId);
+                Exchange exchange = new Exchange();
+                exchange.setId(exchangeDto.getId());
+                exchange.setBaseCurrency(Currency.createFromCurrencyDto(baseCurrency.get()));
+                exchange.setTargetCurrency(Currency.createFromCurrencyDto(targetCurrency.get()));
+                exchange.setRate(exchangeDto.getRate());
+
+                return exchange;
+            }
+        } catch (SQLException e){
+            System.out.println("SQLException in ExchangeDao findExchangeRateByCurrenciesId()");
+        }
+        throw new RuntimeException();
+    }
+
+    private ExchangeDto findExchangeDtoById(int id) {
+        String query = "SELECT *\n" +
+                "FROM exchange_rates\n" +
+                "WHERE id = ?";
+
+        try (Connection connection = DriverManager.getConnection(url);
+             PreparedStatement preparedStatement = connection.prepareStatement(
+                     query)) {
+
+            preparedStatement.setInt(1, id);
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            while (resultSet.next()) {
+                ExchangeDto exchangeDto = new ExchangeDto();
+                exchangeDto.setId(resultSet.getInt("id"));
+                exchangeDto.setBaseCurrency(resultSet.getInt("base_currency_id"));
+                exchangeDto.setTargetCurrency(resultSet.getInt("target_currency_id"));
+                exchangeDto.setRate(resultSet.getDouble("rate"));
+
+                return exchangeDto;
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        throw new RuntimeException();
     }
 }

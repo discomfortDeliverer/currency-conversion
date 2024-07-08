@@ -1,6 +1,7 @@
 package ru.discomfortDeliverer.service;
 
 import ru.discomfortDeliverer.dao.ExchangeDao;
+import ru.discomfortDeliverer.dto.ExchangeByCodeDto;
 import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
 import ru.discomfortDeliverer.models.Exchange;
 
@@ -15,5 +16,9 @@ public class ExchangeService {
 
     public Exchange getExchangeRateByCurrencyPair(String currencyPair) throws SQLException, DataBaseAccessException {
         return exchangeDao.getExchangeRateByCurrencyPair(currencyPair);
+    }
+
+    public Exchange addExchangeRate(ExchangeByCodeDto exchangeByCodeDto) throws DataBaseAccessException {
+        return exchangeDao.addExchangeRate(exchangeByCodeDto);
     }
 }

@@ -1,10 +1,21 @@
 package ru.discomfortDeliverer.models;
 
+import ru.discomfortDeliverer.dto.CurrencyDto;
+
 public class Currency {
     private Integer id;
     private String code;
     private String name;
     private String sign;
+
+    public static Currency createFromCurrencyDto(CurrencyDto currencyDto){
+        Currency currency = new Currency();
+        currency.setId(currencyDto.getId());
+        currency.setCode(currencyDto.getCode());
+        currency.setName(currencyDto.getFullName());
+        currency.setSign(currencyDto.getSign());
+        return currency;
+    }
 
     public Integer getId() {
         return id;

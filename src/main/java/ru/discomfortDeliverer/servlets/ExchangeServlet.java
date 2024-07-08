@@ -2,6 +2,8 @@ package ru.discomfortDeliverer.servlets;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import ru.discomfortDeliverer.dto.ExchangeByCodeDto;
+import ru.discomfortDeliverer.dto.ExchangeDto;
 import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
 import ru.discomfortDeliverer.models.Exchange;
 import ru.discomfortDeliverer.service.ExchangeService;
@@ -58,6 +60,31 @@ public class ExchangeServlet extends HttpServlet {
                 throw new RuntimeException(e);
             }
         }
+
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        String baseCurrencyCode = req.getParameter("baseCurrencyCode");
+        String targetCurrencyCode = req.getParameter("targetCurrencyCode");
+        String rate = req.getParameter("rate");
+
+        ExchangeByCodeDto exchangeByCodeDto = new ExchangeByCodeDto();
+        exchangeByCodeDto.setBaseCurrencyCode(baseCurrencyCode);
+        exchangeByCodeDto.setTargetCurrencyCode(targetCurrencyCode);
+        exchangeByCodeDto.setRate(Double.valueOf(rate));
+
+        try {
+            Exchange insertedExchange = exchangeService.addExchangeRate(exchangeByCodeDto);
+
+            String json = new Gson().toJson(insertedExchange);
+
+            resp.setStatus(200);
+            resp.getWriter().write(json);
+        } catch (DataBaseAccessException e) {
+            throw new RuntimeException(e);
+        }
+
 
     }
 }
