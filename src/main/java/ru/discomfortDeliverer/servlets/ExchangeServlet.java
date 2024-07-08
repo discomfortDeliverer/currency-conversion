@@ -2,6 +2,7 @@ package ru.discomfortDeliverer.servlets;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
 import ru.discomfortDeliverer.models.Exchange;
 import ru.discomfortDeliverer.service.ExchangeService;
 
@@ -19,20 +20,44 @@ public class ExchangeServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 
-        try{
-            List<Exchange> exchangeRates = exchangeService.getExchangeRates();
+        String pathInfo = req.getPathInfo(); // /currencies/HERE
+        String servletPath = req.getServletPath(); // /currencies
 
-            String json = new Gson().toJson(exchangeRates);
-            resp.setStatus(200);
-            resp.getWriter().write(json);
-        } catch (SQLException e){
-            errorJsonObj = new JsonObject();
-            errorJsonObj.addProperty("message", "Внутренняя ошибка");
+        if(servletPath.equals("/exchangeRates")){
+            try{
+                List<Exchange> exchangeRates = exchangeService.getExchangeRates();
 
-            resp.setStatus(500);
-            resp.getWriter().write(String.valueOf(errorJsonObj));
+                String json = new Gson().toJson(exchangeRates);
+                resp.setStatus(200);
+                resp.getWriter().write(json);
+                return;
+            } catch (SQLException e){
+                errorJsonObj = new JsonObject();
+                errorJsonObj.addProperty("message", "Внутренняя ошибка");
+
+                resp.setStatus(500);
+                resp.getWriter().write(String.valueOf(errorJsonObj));
+                return;
+            }
         }
 
+        if(servletPath.equals("/exchangeRate")){
+            String currencyPair = pathInfo.substring(1);
+
+            try {
+                Exchange exchange = exchangeService.getExchangeRateByCurrencyPair(currencyPair);
+                String json = new Gson().toJson(exchange);
+
+                resp.setStatus(200);
+                resp.getWriter().write(json);
+                return;
+            } catch (SQLException e) {
+                resp.setStatus(404);
+                resp.getWriter().write("Обменный курс указанной пары не найден");
+            } catch (DataBaseAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
     }
 }

@@ -1,13 +1,15 @@
 package ru.discomfortDeliverer.dao;
 
 import ru.discomfortDeliverer.dto.CurrencyDto;
-import ru.discomfortDeliverer.dto.ExchangeDto;
+import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
 import ru.discomfortDeliverer.models.Currency;
 import ru.discomfortDeliverer.models.Exchange;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
 public class ExchangeDao {
     private String url = "jdbc:sqlite:D:\\SQLite\\currencyConversion.db";
@@ -76,4 +78,62 @@ public class ExchangeDao {
     }
 
 
+    public Exchange getExchangeRateByCurrencyPair(String currencyPair) throws SQLException, DataBaseAccessException {
+        String baseCurrencyStr = currencyPair.substring(0, 3);
+        String targetCurrencyStr = currencyPair.substring(3);
+
+        CurrencyDao currencyDao = new CurrencyDao();
+        Optional<CurrencyDto> baseCurrencyDtoOptional = currencyDao.findCurrencyByCode(baseCurrencyStr);
+        Optional<CurrencyDto> targetCurrencyDtoOptional = currencyDao.findCurrencyByCode(targetCurrencyStr);
+
+        CurrencyDto baseCurrencyDto = baseCurrencyDtoOptional.get();
+        CurrencyDto targetCurrencyDto = targetCurrencyDtoOptional.get();
+
+
+        Exchange exchange = findExchangeRateByCurrenciesId(baseCurrencyDto.getId(), targetCurrencyDto.getId());
+        // Здесь надо переснести DTO в Model
+        Currency baseCurrency = currencyFromCurrencyDto(baseCurrencyDto);
+        Currency targetCurrency = currencyFromCurrencyDto(targetCurrencyDto);
+
+        exchange.setBaseCurrency(baseCurrency);
+        exchange.setTargetCurrency(targetCurrency);
+
+        return exchange;
+   }
+
+    private Exchange findExchangeRateByCurrenciesId(int baseCurrencyId, int targetCurrencyId) {
+        String query = "SELECT *\n" +
+                "FROM exchange_rates\n" +
+                "WHERE base_currency_id= ? AND target_currency_id = ? ;";
+        try (Connection connection = DriverManager.getConnection(url);
+             PreparedStatement preparedStatement = connection.prepareStatement(
+                     query)) {
+
+            preparedStatement.setInt(1, baseCurrencyId);
+            preparedStatement.setInt(2, targetCurrencyId);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            while (resultSet.next()) {
+                Exchange exchange = new Exchange();
+                exchange.setId(resultSet.getInt("id"));
+                exchange.setRate(resultSet.getDouble("rate"));
+
+                return exchange;
+            }
+        } catch (SQLException e){
+            System.out.println("SQLException in ExchangeDao findExchangeRateByCurrenciesId()");
+        }
+        throw new NoSuchElementException();
+    }
+
+    public Currency currencyFromCurrencyDto (CurrencyDto currencyDto) {
+        Currency currency = new Currency();
+
+        currency.setId(currencyDto.getId());
+        currency.setName(currencyDto.getFullName());
+        currency.setCode(currencyDto.getCode());
+        currency.setSign(currencyDto.getSign());
+
+        return currency;
+    }
 }
