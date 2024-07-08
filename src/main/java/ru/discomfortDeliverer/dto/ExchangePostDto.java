@@ -1,6 +1,6 @@
 package ru.discomfortDeliverer.dto;
 
-public class ExchangeByCodeDto {
+public class ExchangePostDto {
     private String baseCurrencyCode;
     private String targetCurrencyCode;
     private Double rate;

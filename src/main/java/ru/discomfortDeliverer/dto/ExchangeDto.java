@@ -2,8 +2,8 @@ package ru.discomfortDeliverer.dto;
 
 public class ExchangeDto {
     private Integer id;
-    private Integer baseCurrency;
-    private Integer targetCurrency;
+    private Integer baseCurrencyId;
+    private Integer targetCurrencyId;
     private Double rate;
 
     public Integer getId() {
@@ -14,20 +14,20 @@ public class ExchangeDto {
         this.id = id;
     }
 
-    public Integer getBaseCurrency() {
-        return baseCurrency;
+    public Integer getBaseCurrencyId() {
+        return baseCurrencyId;
     }
 
-    public void setBaseCurrency(Integer baseCurrency) {
-        this.baseCurrency = baseCurrency;
+    public void setBaseCurrencyId(Integer baseCurrencyId) {
+        this.baseCurrencyId = baseCurrencyId;
     }
 
-    public Integer getTargetCurrency() {
-        return targetCurrency;
+    public Integer getTargetCurrencyId() {
+        return targetCurrencyId;
     }
 
-    public void setTargetCurrency(Integer targetCurrency) {
-        this.targetCurrency = targetCurrency;
+    public void setTargetCurrencyId(Integer targetCurrencyId) {
+        this.targetCurrencyId = targetCurrencyId;
     }
 
     public Double getRate() {

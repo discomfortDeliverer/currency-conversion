@@ -1,15 +1,10 @@
 package ru.discomfortDeliverer.models;
 
-import ru.discomfortDeliverer.dto.CurrencyDto;
-import ru.discomfortDeliverer.dto.ExchangeDto;
-
-public class Exchange {
+public class ExchangeRate {
     private Integer id;
     private Currency baseCurrency;
     private Currency targetCurrency;
     private Double rate;
-    private String baseCode;
-    private String targetCode;
 
     public Integer getId() {
         return id;
@@ -41,21 +36,5 @@ public class Exchange {
 
     public void setRate(Double rate) {
         this.rate = rate;
-    }
-
-    public String getBaseCode() {
-        return baseCode;
-    }
-
-    public void setBaseCode(String baseCode) {
-        this.baseCode = baseCode;
-    }
-
-    public String getTargetCode() {
-        return targetCode;
-    }
-
-    public void setTargetCode(String targetCode) {
-        this.targetCode = targetCode;
     }
 }
