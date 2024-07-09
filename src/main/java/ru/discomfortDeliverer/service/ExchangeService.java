@@ -1,9 +1,12 @@
 package ru.discomfortDeliverer.service;
 
 import ru.discomfortDeliverer.dao.ExchangeDao;
+import ru.discomfortDeliverer.dto.ConversionDto;
+import ru.discomfortDeliverer.dto.ConvertedDto;
 import ru.discomfortDeliverer.dto.ExchangePostDto;
 import ru.discomfortDeliverer.dto.ExchangeUpdateDto;
 import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
+import ru.discomfortDeliverer.exceptions.ExchangeRateCalculationException;
 import ru.discomfortDeliverer.exceptions.QueryResultToCurrencyDtoParseException;
 import ru.discomfortDeliverer.mappers.ExchangeMapper;
 import ru.discomfortDeliverer.models.Exchange;
@@ -32,5 +35,10 @@ public class ExchangeService {
             throws DataBaseAccessException, SQLException, QueryResultToCurrencyDtoParseException {
         Exchange exchange = ExchangeMapper.exchangeUpdateDtoToExchange(exchangeUpdateDto);
         return exchangeDao.updateExchangeRate(exchange);
+    }
+
+    public ConvertedDto convert(ConversionDto conversionDto)
+            throws SQLException, QueryResultToCurrencyDtoParseException, ExchangeRateCalculationException {
+        return exchangeDao.convert(conversionDto);
     }
 }

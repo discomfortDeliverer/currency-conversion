@@ -1,10 +1,8 @@
 package ru.discomfortDeliverer.dao;
 
-import ru.discomfortDeliverer.dto.CurrencyDto;
-import ru.discomfortDeliverer.dto.ExchangePostDto;
-import ru.discomfortDeliverer.dto.ExchangeDto;
-import ru.discomfortDeliverer.dto.ExchangeUpdateDto;
+import ru.discomfortDeliverer.dto.*;
 import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
+import ru.discomfortDeliverer.exceptions.ExchangeRateCalculationException;
 import ru.discomfortDeliverer.exceptions.QueryResultToCurrencyDtoParseException;
 import ru.discomfortDeliverer.mappers.CurrencyMapper;
 import ru.discomfortDeliverer.mappers.ExchangeMapper;
@@ -241,4 +239,79 @@ public class ExchangeDao {
     }
 
 
+    public ConvertedDto convert(ConversionDto conversionDto)
+            throws SQLException, QueryResultToCurrencyDtoParseException, ExchangeRateCalculationException {
+        Currency from = findCurrencyByCurrencyCode(conversionDto.getFrom());
+        Currency to = findCurrencyByCurrencyCode(conversionDto.getTo());
+
+        String query = "SELECT *\n" +
+                "FROM exchange_rates \n" +
+                "WHERE base_currency_id = ? AND target_currency_id = ?";
+
+        try(Connection connection = DriverManager.getConnection(url);
+            PreparedStatement preparedStatement = connection.prepareStatement(
+                    query)) {
+
+            preparedStatement.setInt(1, from.getId());
+            preparedStatement.setInt(2, to.getId());
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            // Если в таблице существует валютная пара AB
+            if(resultSet.next()){
+                ConvertedDto convertedDto = new ConvertedDto();
+                convertedDto.setBaseCurrency(from);
+                convertedDto.setTargetCurrency(to);
+                convertedDto.setRate(resultSet.getDouble("rate"));
+                convertedDto.setAmount(conversionDto.getAmount());
+                convertedDto.setConvertedAmount(convertedDto.getRate() * convertedDto.getAmount());
+                return convertedDto;
+            }
+            // Если в таблице существует валютная пара BA
+            preparedStatement.setInt(1, to.getId());
+            preparedStatement.setInt(2, from.getId());
+
+            resultSet = preparedStatement.executeQuery();
+            if(resultSet.next()){
+                ConvertedDto convertedDto = new ConvertedDto();
+                convertedDto.setBaseCurrency(from);
+                convertedDto.setTargetCurrency(to);
+                convertedDto.setRate(resultSet.getDouble("rate"));
+                convertedDto.setAmount(conversionDto.getAmount());
+                convertedDto.setConvertedAmount((1 / convertedDto.getRate()) * convertedDto.getAmount());
+                return convertedDto;
+            }
+            // Если в таблице существуют валютные пары USD-A и USD-B
+            Currency usd = findCurrencyByCurrencyCode("USD");
+            preparedStatement.setInt(1, usd.getId());
+            preparedStatement.setInt(2, from.getId());
+
+            resultSet = preparedStatement.executeQuery();
+            Double fromRate = null;
+            if (resultSet.next()){
+                fromRate = resultSet.getDouble("rate");
+            }
+
+            preparedStatement.setInt(1, usd.getId());
+            preparedStatement.setInt(2, to.getId());
+
+            resultSet = preparedStatement.executeQuery();
+            Double toRate = null;
+            if (resultSet.next()){
+                toRate = resultSet.getDouble("rate");
+            }
+
+            if(fromRate != null && toRate != null){
+                ConvertedDto convertedDto = new ConvertedDto();
+                convertedDto.setBaseCurrency(from);
+                convertedDto.setTargetCurrency(to);
+                convertedDto.setRate(toRate / fromRate);
+                convertedDto.setAmount(conversionDto.getAmount());
+                convertedDto.setConvertedAmount(convertedDto.getRate() * convertedDto.getAmount());
+                return convertedDto;
+            }
+
+            throw new ExchangeRateCalculationException();
+        }
+    }
 }
