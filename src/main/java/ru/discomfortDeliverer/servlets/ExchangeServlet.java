@@ -74,6 +74,12 @@ public class ExchangeServlet extends HttpServlet {
             }
         }
 
+        if(servletPath.equals("/exchange")){
+            String from = req.getParameter("from");
+            String to = req.getParameter("to");
+            Double amount = Double.valueOf(req.getParameter("amount"));
+        }
+
     }
 
     @Override
