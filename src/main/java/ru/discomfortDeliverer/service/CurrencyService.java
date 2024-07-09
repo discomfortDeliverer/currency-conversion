@@ -2,42 +2,31 @@ package ru.discomfortDeliverer.service;
 
 import ru.discomfortDeliverer.dao.CurrencyDao;
 import ru.discomfortDeliverer.dto.CurrencyDto;
+import ru.discomfortDeliverer.exceptions.CurrencyNotFoundException;
 import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
 import ru.discomfortDeliverer.exceptions.FieldAlreadyExistException;
+import ru.discomfortDeliverer.models.Currency;
 
 import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class CurrencyService {
     private CurrencyDao currencyDao = new CurrencyDao();
-    public List<CurrencyDto> getAllCurrencies() throws ClassNotFoundException {
-        List<CurrencyDto> allCurrency = null;
-
-        allCurrency = currencyDao.getAllCurrency();
-
-        return allCurrency;
+    public List<Currency> getAllCurrencies() throws DataBaseAccessException {
+        return currencyDao.getAllCurrency();
     }
 
-    public Optional<CurrencyDto> getCurrencyByCode(String code) throws DataBaseAccessException {
+    public Currency getCurrencyByCode(String code)
+            throws DataBaseAccessException, CurrencyNotFoundException {
         return currencyDao.findCurrencyByCode(code);
     }
 
-    public Optional<CurrencyDto> createCurrency(String name, String code, String sign)
+    public Integer createCurrency(Currency currency)
             throws DataBaseAccessException, FieldAlreadyExistException {
-
-        CurrencyDto currencyDto = new CurrencyDto();
-        currencyDto.setFullName(name);
-        currencyDto.setCode(code);
-        currencyDto.setSign(sign);
-
-        // Пытаемся добавить объект в базу данных
-        return currencyDao.addCurrencyIntoDataBase(currencyDto);
-
-
+        return currencyDao.addCurrencyIntoDataBase(currency);
     }
 
     private Map<String, String> parseRequestBody(String requestBody){
