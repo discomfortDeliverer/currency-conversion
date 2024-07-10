@@ -63,6 +63,9 @@ public class ExchangeRateServlet extends AbstractExchangeServlet {
         if(method.equals("PATCH")){
             doPatch(req, res);
         }
+        if(method.equals("GET")){
+            doGet(req, res);
+        }
     }
 
     protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
