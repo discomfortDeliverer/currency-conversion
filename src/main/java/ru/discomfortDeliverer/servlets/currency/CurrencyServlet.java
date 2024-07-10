@@ -1,26 +1,21 @@
 package ru.discomfortDeliverer.servlets.currency;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import ru.discomfortDeliverer.dto.CurrencyDto;
 import ru.discomfortDeliverer.exceptions.CurrencyNotFoundException;
 import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
 import ru.discomfortDeliverer.models.Currency;
 import ru.discomfortDeliverer.models.response.ErrorResponse;
-import ru.discomfortDeliverer.service.CurrencyService;
 import ru.discomfortDeliverer.servlets.HttpServletConfigurer;
 import ru.discomfortDeliverer.util.Validator;
 
-import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Optional;
+
 
 
 public class CurrencyServlet extends AbstractCurrencyServlet {
     private JsonObject errorJsonObj;
-    // Получаем список всех валют
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         HttpServletConfigurer.setEncode(req, resp);

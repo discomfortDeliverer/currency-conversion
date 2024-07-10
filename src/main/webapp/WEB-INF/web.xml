@@ -4,15 +4,6 @@
          xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee webapp_4_0.xsd"
          version="4.0">
     <servlet>
-        <servlet-name>simple-servlet</servlet-name>
-        <servlet-class>ru.discomfortDeliverer.servlets.SimpleServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>simple-servlet</servlet-name>
-        <url-pattern>/simple-servlet</url-pattern>
-    </servlet-mapping>
-
-    <servlet>
         <servlet-name>currency-servlet</servlet-name>
         <servlet-class>ru.discomfortDeliverer.servlets.currency.CurrencyServlet</servlet-class>
     </servlet>
@@ -44,7 +35,7 @@
         <servlet-class>ru.discomfortDeliverer.servlets.exchange.ExchangeRatesServlet</servlet-class>
     </servlet>
     <servlet-mapping>
-        <servlet-name>exchange-servlet</servlet-name>
+        <servlet-name>exchange-rates-servlet</servlet-name>
         <url-pattern>/exchangeRates</url-pattern>
     </servlet-mapping>
 
@@ -54,7 +45,7 @@
     </servlet>
     <servlet-mapping>
         <servlet-name>exchange-rate-servlet</servlet-name>
-        <url-pattern>/exchangeRate</url-pattern>
+        <url-pattern>/exchangeRate/*</url-pattern>
     </servlet-mapping>
 </web-app>
 

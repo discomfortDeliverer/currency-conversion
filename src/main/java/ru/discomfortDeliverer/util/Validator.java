@@ -6,4 +6,10 @@ public class Validator {
 
         return currencyCode.matches("[A-Z]+");
     }
+
+    public static boolean isValidCurrencyPairCodes(String currencyPairCodes){
+        if(currencyPairCodes.length() > 6) return false;
+
+        return currencyPairCodes.matches("[A-Z]+");
+    }
 }

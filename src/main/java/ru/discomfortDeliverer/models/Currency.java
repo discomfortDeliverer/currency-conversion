@@ -1,6 +1,5 @@
 package ru.discomfortDeliverer.models;
 
-import ru.discomfortDeliverer.dto.CurrencyDto;
 
 public class Currency {
     private Integer id;

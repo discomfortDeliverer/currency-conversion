@@ -1,14 +1,9 @@
 package ru.discomfortDeliverer.dao;
 
-import ru.discomfortDeliverer.dto.*;
-import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
-import ru.discomfortDeliverer.exceptions.ExchangeRateCalculationException;
-import ru.discomfortDeliverer.exceptions.QueryResultToCurrencyDtoParseException;
-import ru.discomfortDeliverer.mappers.CurrencyMapper;
-import ru.discomfortDeliverer.mappers.ExchangeMapper;
+import ru.discomfortDeliverer.exceptions.*;
 import ru.discomfortDeliverer.models.Currency;
-import ru.discomfortDeliverer.models.Exchange;
 import ru.discomfortDeliverer.models.ExchangeRate;
+import ru.discomfortDeliverer.models.response.ExchangedRate;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -25,17 +20,17 @@ public class ExchangeDao {
         }
     }
 
-    public List<Exchange> getExchangeRates() throws SQLException {
-        List<Exchange> exchanges = new ArrayList<>();
+    public List<ExchangeRate> findAllExchangeRates() throws DataBaseAccessException {
+        List<ExchangeRate> exchanges = new ArrayList<>();
 
         String query = "SELECT \n" +
                 "    er.id,\n" +
                 "    er.rate,\n" +
-                "\tbc.id AS base_currency_id,\n" +
+                "    bc.id AS base_currency_id,\n" +
                 "    bc.code AS base_currency_code,\n" +
                 "    bc.full_name AS base_currency_name,\n" +
                 "    bc.sign AS base_currency_sign,\n" +
-                "\ttc.id AS target_currency_id,\n" +
+                "    tc.id AS target_currency_id,\n" +
                 "    tc.code AS target_currency_code,\n" +
                 "    tc.full_name AS target_currency_name,\n" +
                 "    tc.sign AS target_currency_sign\n" +
@@ -64,185 +59,107 @@ public class ExchangeDao {
                 targetCurrency.setCode(resultSet.getString("target_currency_code"));
                 targetCurrency.setSign(resultSet.getString("target_currency_sign"));
 
-                Exchange exchange = new Exchange();
-                exchange.setId(resultSet.getInt("id"));
-                exchange.setBaseCurrency(baseCurrency);
-                exchange.setTargetCurrency(targetCurrency);
-                exchange.setRate(resultSet.getDouble("rate"));
+                ExchangeRate exchangeRate = new ExchangeRate();
+                exchangeRate.setId(resultSet.getInt("id"));
+                exchangeRate.setBaseCurrency(baseCurrency);
+                exchangeRate.setTargetCurrency(targetCurrency);
+                exchangeRate.setRate(resultSet.getDouble("rate"));
 
-                exchanges.add(exchange);
+                exchanges.add(exchangeRate);
             }
         } catch (SQLException e) {
-            System.out.println("Ошибка доступа к БД");
-            throw e;
+            throw new DataBaseAccessException(e.getMessage(), e);
         }
-
         return exchanges;
     }
 
+   public ExchangeRate findExchangeRateByCurrencyCodes(String baseCurrencyCode, String targetCurrencyCode)
+           throws DataBaseAccessException, ExchangeRateNotFoundException {
+       String query = "SELECT \n" +
+               "    er.id,\n" +
+               "    er.rate,\n" +
+               "    bc.id AS base_currency_id,\n" +
+               "    bc.code AS base_currency_code,\n" +
+               "    bc.full_name AS base_currency_name,\n" +
+               "    bc.sign AS base_currency_sign,\n" +
+               "    tc.id AS target_currency_id,\n" +
+               "    tc.code AS target_currency_code,\n" +
+               "    tc.full_name AS target_currency_name,\n" +
+               "    tc.sign AS target_currency_sign\n" +
+               "FROM exchange_rates AS er\n" +
+               "JOIN currency AS bc\n" +
+               "ON er.base_currency_id = bc.id\n" +
+               "JOIN currency AS tc\n" +
+               "ON er.target_currency_id = tc.id\n" +
+               "WHERE bc.code = ? AND tc.code = ?";
 
-    public ExchangeRate getExchangeRateByCurrencyPair(ExchangeUpdateDto exchangeUpdateDto)
-            throws SQLException, DataBaseAccessException, QueryResultToCurrencyDtoParseException {
+       try (Connection connection = DriverManager.getConnection(url);
+            PreparedStatement preparedStatement = connection.prepareStatement(
+                    query)){
+           preparedStatement.setString(1, baseCurrencyCode);
+           preparedStatement.setString(2, targetCurrencyCode);
 
-        Currency baseCurrency = findCurrencyByCurrencyCode(exchangeUpdateDto.getBaseCode());
-        Currency targetCurrency = findCurrencyByCurrencyCode(exchangeUpdateDto.getTargetCode());
+           ResultSet resultSet = preparedStatement.executeQuery();
+           if(resultSet.next()){
+               Currency baseCurrency = new Currency();
+               baseCurrency.setId(resultSet.getInt("base_currency_id"));
+               baseCurrency.setName(resultSet.getString("base_currency_name"));
+               baseCurrency.setCode(resultSet.getString("base_currency_code"));
+               baseCurrency.setSign(resultSet.getString("base_currency_sign"));
 
+               Currency targetCurrency = new Currency();
+               targetCurrency.setId(resultSet.getInt("target_currency_id"));
+               targetCurrency.setName(resultSet.getString("target_currency_name"));
+               targetCurrency.setCode(resultSet.getString("target_currency_code"));
+               targetCurrency.setSign(resultSet.getString("target_currency_sign"));
 
-        ExchangeDto exchangeDto = findExchangeDtoByCurrenciesId(baseCurrency.getId(), targetCurrency.getId());
-        // Здесь надо переснести DTO в Model
-        return ExchangeMapper.exchangeDtoAndCurrenciesToExchange(exchangeDto, baseCurrency, targetCurrency);
+               ExchangeRate exchangeRate = new ExchangeRate();
+               exchangeRate.setId(resultSet.getInt("id"));
+               exchangeRate.setBaseCurrency(baseCurrency);
+               exchangeRate.setTargetCurrency(targetCurrency);
+               exchangeRate.setRate(resultSet.getDouble("rate"));
 
+               return exchangeRate;
+           }
+
+            throw new ExchangeRateNotFoundException();
+       } catch (SQLException e) {
+           throw new DataBaseAccessException(e.getMessage(), e);
+       }
    }
 
-    private ExchangeDto findExchangeDtoByCurrenciesId(int baseCurrencyId, int targetCurrencyId) throws SQLException {
-        String query = "SELECT *\n" +
-                "FROM exchange_rates\n" +
-                "WHERE base_currency_id= ? AND target_currency_id = ?";
-        try (Connection connection = DriverManager.getConnection(url);
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     query)) {
-
-            preparedStatement.setInt(1, baseCurrencyId);
-            preparedStatement.setInt(2, targetCurrencyId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            return ExchangeMapper.queryResultToExchangeDto(resultSet);
-        } catch (SQLException e){
-            System.out.println("SQLException in ExchangeDao findExchangeRateByCurrenciesId()");
-            throw e;
-        }
-    }
-
-    public Currency currencyFromCurrencyDto (CurrencyDto currencyDto) {
-        Currency currency = new Currency();
-
-        currency.setId(currencyDto.getId());
-        currency.setName(currencyDto.getFullName());
-        currency.setCode(currencyDto.getCode());
-        currency.setSign(currencyDto.getSign());
-
-        return currency;
-    }
-
-    public Exchange addExchangeRate(ExchangePostDto exchangePostDto)
-            throws DataBaseAccessException, QueryResultToCurrencyDtoParseException {
-        String query = "INSERT INTO exchange_rates\n" +
-                "(base_currency_id, target_currency_id, rate)\n" +
-                "VALUES (?, ?, ?)";
-
-        try (Connection connection = DriverManager.getConnection(url);
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     query)) {
-            Currency baseCurrency = findCurrencyByCurrencyCode(exchangePostDto.getBaseCurrencyCode());
-            Currency targetCurrency = findCurrencyByCurrencyCode(exchangePostDto.getTargetCurrencyCode());
-
-            preparedStatement.setInt(1, baseCurrency.getId());
-            preparedStatement.setInt(2, targetCurrency.getId());
-            preparedStatement.setDouble(3, exchangePostDto.getRate());
-
-            int affectedRows = preparedStatement.executeUpdate();
-
-            // Получаем последний вставленный id
-            ResultSet generatedKeys = preparedStatement.getGeneratedKeys();
-
-            if(generatedKeys.next()){
-                Integer lastInsertedId = generatedKeys.getInt(1);
-
-                // Возвращаем только что вставленную запись
-                ExchangeDto exchangeDto = findExchangeDtoById(lastInsertedId);
-                Exchange exchange = new Exchange();
-                exchange.setId(exchangeDto.getId());
-                exchange.setBaseCurrency(baseCurrency);
-                exchange.setTargetCurrency(targetCurrency);
-                exchange.setRate(exchangeDto.getRate());
-
-                return exchange;
-            }
-        } catch (SQLException e){
-            System.out.println("SQLException in ExchangeDao findExchangeRateByCurrenciesId()");
-        }
-        throw new RuntimeException();
-    }
-
-    public ExchangeRate updateExchangeRate(Exchange exchange) throws DataBaseAccessException, QueryResultToCurrencyDtoParseException, SQLException {
-        String query = "UPDATE exchange_rates *\n" +
+    public Integer updateExchangeRate(int baseCurrencyId, int targetCurrencyId, Double rate)
+            throws DataBaseAccessException {
+        String query = "UPDATE exchange_rates\n" +
                 "SET rate = ?\n" +
-                "WHERE id = ?";
+                "WHERE base_currency_id = ? AND target_currency_id = ?";
 
         try(Connection connection = DriverManager.getConnection(url);
             PreparedStatement preparedStatement = connection.prepareStatement(
-                    query)) {
-            // Находим в бд Currency по CurrencyCode (RUB, EUR и т.д.)
-            Currency baseCurrency = findCurrencyByCurrencyCode(exchange.getBaseCode());
-            Currency targetCurrency = findCurrencyByCurrencyCode(exchange.getTargetCode());
+                    query, Statement.RETURN_GENERATED_KEYS)) {
 
-            // Получаем по двум currency_id ExchangeDto
-            ExchangeDto exchangeDto = findExchangeDtoByCurrenciesId(baseCurrency.getId(),
-                    targetCurrency.getId());
+            preparedStatement.setDouble(1, rate);
+            preparedStatement.setDouble(2, baseCurrencyId);
+            preparedStatement.setDouble(3, targetCurrencyId);
 
-            // Обновляем данные exchangeDto в таблице
-            preparedStatement.setDouble(1, exchange.getRate());
-            preparedStatement.setInt(2, exchangeDto.getId());
+            int resultSet = preparedStatement.executeUpdate();
 
-            preparedStatement.executeUpdate();
+            ResultSet savedExchangeRate = preparedStatement.getGeneratedKeys();
+            savedExchangeRate.next();
 
-            // Получаем из БД обновленный exchangeDto
-            ExchangeDto updatedExchangeDto = findExchangeDtoById(exchangeDto.getId());
-
-            // Преобразовываем ExchangeDto и Currency в ExchangeRate, оторый быдем возвращать
-            return ExchangeMapper.exchangeDtoAndCurrenciesToExchange(updatedExchangeDto, baseCurrency, targetCurrency);
-        } catch (QueryResultToCurrencyDtoParseException e) {
-            throw e;
-        } catch (SQLException e) {
-            throw e;
-        }
-    }
-
-    private ExchangeDto findExchangeDtoById(Integer id) throws SQLException {
-        String query = "SELECT *\n" +
-                "FROM exchange_rates \n" +
-                "WHERE id = ?";
-
-        try(Connection connection = DriverManager.getConnection(url);
-            PreparedStatement preparedStatement = connection.prepareStatement(
-                    query)) {
-
-            preparedStatement.setInt(1, id);
-
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            return ExchangeMapper.queryResultToExchangeDto(resultSet);
-        }
-    }
-
-    private Currency findCurrencyByCurrencyCode(String code)
-            throws QueryResultToCurrencyDtoParseException, SQLException {
-        String query = "SELECT *\n" +
-                "FROM currency\n" +
-                "WHERE code = ?";
-
-        try (Connection connection = DriverManager.getConnection(url);
-             PreparedStatement preparedStatement = connection.prepareStatement(
-                     query)) {
-
-            preparedStatement.setString(1, code);
-
-            ResultSet resultSet = preparedStatement.executeQuery();
-
-            CurrencyDto currencyDto = CurrencyMapper.queryResultToCurrencyDto(resultSet);
-
-            return CurrencyMapper.currencyDtoToCurrency(currencyDto);
+            return savedExchangeRate.getInt(1);
 
         } catch (SQLException e) {
-            throw e;
+            throw new DataBaseAccessException(e.getMessage(), e);
         }
     }
 
+    public ExchangedRate convert(String codeFrom, String codeTo, Double amount)
+            throws SQLException, ExchangeRateCalculationException, DataBaseAccessException, CurrencyNotFoundException {
+        CurrencyDao currencyDao = new CurrencyDao();
 
-    public ConvertedDto convert(ConversionDto conversionDto)
-            throws SQLException, QueryResultToCurrencyDtoParseException, ExchangeRateCalculationException {
-        Currency from = findCurrencyByCurrencyCode(conversionDto.getFrom());
-        Currency to = findCurrencyByCurrencyCode(conversionDto.getTo());
+        Currency from = currencyDao.findCurrencyByCode(codeFrom);
+        Currency to = currencyDao.findCurrencyByCode(codeTo);
 
         String query = "SELECT *\n" +
                 "FROM exchange_rates \n" +
@@ -257,32 +174,45 @@ public class ExchangeDao {
 
             ResultSet resultSet = preparedStatement.executeQuery();
 
+            ExchangedRate exchangedRate = new ExchangedRate();
+            exchangedRate.setAmount(amount);
+
             // Если в таблице существует валютная пара AB
             if(resultSet.next()){
-                ConvertedDto convertedDto = new ConvertedDto();
-                convertedDto.setBaseCurrency(from);
-                convertedDto.setTargetCurrency(to);
-                convertedDto.setRate(resultSet.getDouble("rate"));
-                convertedDto.setAmount(conversionDto.getAmount());
-                convertedDto.setConvertedAmount(convertedDto.getRate() * convertedDto.getAmount());
-                return convertedDto;
+                exchangedRate.setBaseCurrency(from);
+                exchangedRate.setTargetCurrency(to);
+                exchangedRate.setRate(resultSet.getDouble("rate"));
+
+                Double convertedAmount = exchangedRate.getRate() * exchangedRate.getAmount();
+                Double roundedConvertedAmount = Math.round(convertedAmount * 100.0) / 100.0;
+                exchangedRate.setConvertedAmount(roundedConvertedAmount);
+                return exchangedRate;
             }
+
             // Если в таблице существует валютная пара BA
             preparedStatement.setInt(1, to.getId());
             preparedStatement.setInt(2, from.getId());
 
             resultSet = preparedStatement.executeQuery();
             if(resultSet.next()){
-                ConvertedDto convertedDto = new ConvertedDto();
-                convertedDto.setBaseCurrency(from);
-                convertedDto.setTargetCurrency(to);
-                convertedDto.setRate(resultSet.getDouble("rate"));
-                convertedDto.setAmount(conversionDto.getAmount());
-                convertedDto.setConvertedAmount((1 / convertedDto.getRate()) * convertedDto.getAmount());
-                return convertedDto;
+                exchangedRate.setBaseCurrency(from);
+                exchangedRate.setTargetCurrency(to);
+                Double rate = resultSet.getDouble("rate");
+
+                // Округляем
+                rate = 1 / rate;
+                Double roundedRate = Math.round(rate * 100.0) / 100.0;
+                exchangedRate.setRate(rate);
+
+
+                Double convertedAmount = exchangedRate.getRate() * exchangedRate.getAmount();
+                Double roundedConvertedAmount = Math.round(convertedAmount * 100.0) / 100.0;
+                exchangedRate.setConvertedAmount(roundedConvertedAmount);
+                return exchangedRate;
             }
+
             // Если в таблице существуют валютные пары USD-A и USD-B
-            Currency usd = findCurrencyByCurrencyCode("USD");
+            Currency usd = currencyDao.findCurrencyByCode("USD");
             preparedStatement.setInt(1, usd.getId());
             preparedStatement.setInt(2, from.getId());
 
@@ -302,16 +232,52 @@ public class ExchangeDao {
             }
 
             if(fromRate != null && toRate != null){
-                ConvertedDto convertedDto = new ConvertedDto();
-                convertedDto.setBaseCurrency(from);
-                convertedDto.setTargetCurrency(to);
-                convertedDto.setRate(toRate / fromRate);
-                convertedDto.setAmount(conversionDto.getAmount());
-                convertedDto.setConvertedAmount(convertedDto.getRate() * convertedDto.getAmount());
-                return convertedDto;
+                exchangedRate.setBaseCurrency(from);
+                exchangedRate.setTargetCurrency(to);
+
+                Double roundedRate = Math.round((toRate / fromRate) * 100.0) / 100.0;
+                exchangedRate.setRate(roundedRate);
+
+                Double convertedAmount = exchangedRate.getRate() * exchangedRate.getAmount();
+                Double roundedConvertedAmount = Math.round(convertedAmount * 100.0) / 100.0;
+                exchangedRate.setConvertedAmount(roundedConvertedAmount);
+                return exchangedRate;
             }
 
             throw new ExchangeRateCalculationException();
+        }
+    }
+
+    public Integer saveExchangeRate(Integer baseCurrencyId, Integer targetCurrencyId, double rate)
+            throws DataBaseAccessException, FieldAlreadyExistException {
+        String query = "INSERT INTO exchange_rates\n" +
+                "(base_currency_id, target_currency_id, rate)\n" +
+                "VALUES (?, ?, ?)";
+
+        try (Connection connection = DriverManager.getConnection(url);
+             PreparedStatement preparedStatement = connection.prepareStatement(
+                     query)) {
+
+            preparedStatement.setInt(1, baseCurrencyId);
+            preparedStatement.setInt(2, targetCurrencyId);
+            preparedStatement.setDouble(3, rate);
+
+            int affectedRows = preparedStatement.executeUpdate();
+
+            // Получаем последний вставленный id
+            ResultSet generatedKeys = preparedStatement.getGeneratedKeys();
+
+            if(generatedKeys.next()){
+                Integer lastInsertedId = generatedKeys.getInt(1);
+
+                // Возвращаем только id вставленной записи
+                return lastInsertedId;
+            } else throw new SQLException();
+        } catch (SQLException e){
+            if(e.getMessage().contains("A UNIQUE constraint failed")){
+                throw new FieldAlreadyExistException(e.getMessage(), e);
+            }
+            throw new DataBaseAccessException(e.getMessage(), e);
         }
     }
 }

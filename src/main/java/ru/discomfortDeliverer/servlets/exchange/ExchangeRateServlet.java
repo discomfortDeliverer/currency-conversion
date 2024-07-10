@@ -1,97 +1,128 @@
 package ru.discomfortDeliverer.servlets.exchange;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import ru.discomfortDeliverer.dto.ExceptionDto;
-import ru.discomfortDeliverer.dto.ExchangeUpdateDto;
+import ru.discomfortDeliverer.dao.CurrencyDao;
+import ru.discomfortDeliverer.exceptions.CurrencyNotFoundException;
 import ru.discomfortDeliverer.exceptions.DataBaseAccessException;
+import ru.discomfortDeliverer.exceptions.ExchangeRateNotFoundException;
 import ru.discomfortDeliverer.exceptions.QueryResultToCurrencyDtoParseException;
+import ru.discomfortDeliverer.models.Currency;
 import ru.discomfortDeliverer.models.ExchangeRate;
-import ru.discomfortDeliverer.service.ExchangeService;
+import ru.discomfortDeliverer.models.response.ErrorResponse;
 import ru.discomfortDeliverer.servlets.HttpServletConfigurer;
+import ru.discomfortDeliverer.util.Validator;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.sql.SQLException;
 
-public class ExchangeRateServlet extends HttpServlet {
-    private ExchangeService exchangeService = new ExchangeService();
-    private JsonObject errorJsonObj;
-    private ExceptionDto exceptionDto;
+public class ExchangeRateServlet extends AbstractExchangeServlet {
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+            throws IOException {
         HttpServletConfigurer.setEncode(req, resp);
         String pathInfo = req.getPathInfo();
 
-        String currencyPair = pathInfo.substring(1);
+        String currencyPairCodes = pathInfo.substring(1);
 
-        ExchangeUpdateDto exchangeUpdateDto = new ExchangeUpdateDto();
-        exchangeUpdateDto.setBaseCode(currencyPair.substring(0, 3));
-        exchangeUpdateDto.setTargetCode(currencyPair.substring(3));
+        if(!Validator.isValidCurrencyPairCodes(currencyPairCodes)){
+            resp.setStatus(404);
+
+            errorResponse = new ErrorResponse(404, "Ошибка, неверный код валютной пары");
+            resp.getWriter().write(jsonParser.toJson(errorResponse));
+        }
+
+
+        String baseCurrencyCode = currencyPairCodes.substring(0, 3);
+        String targetCurrencyCode = currencyPairCodes.substring(3);
 
         try {
-            ExchangeRate exchangeRate = exchangeService.getExchangeRateByCurrencyPair(exchangeUpdateDto);
+            ExchangeRate exchangeRate = exchangeService.getExchangeRateByCurrencyPairCodes(baseCurrencyCode, targetCurrencyCode);
             String json = new Gson().toJson(exchangeRate);
 
             resp.setStatus(200);
             resp.getWriter().write(json);
             return;
-        } catch (SQLException e) {
-            exceptionDto.setStatusCode(404);
-            exceptionDto.setMessage("Обменный курс указанной пары не найден");
-
+        } catch (SQLException | ExchangeRateNotFoundException e) {
             resp.setStatus(404);
-            resp.getWriter().write(String.valueOf(exceptionDto));
+            errorResponse = new ErrorResponse(404, "Ошибка, обменный курс указанной пары не найден");
+            resp.getWriter().write(jsonParser.toJson(errorResponse));
         } catch (DataBaseAccessException e) {
-            throw new RuntimeException(e);
+            resp.setStatus(500);
+            errorResponse = new ErrorResponse(500, "Ошибка, база данных недоступна");
+            resp.getWriter().write(jsonParser.toJson(errorResponse));
         } catch (QueryResultToCurrencyDtoParseException e) {
             throw new RuntimeException(e);
+        }
+    }
+    @Override
+    public void service(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+        String method = req.getMethod();
+        if(method.equals("PATCH")){
+            doPatch(req, res);
         }
     }
 
     protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         HttpServletConfigurer.setEncode(req, resp);
-        Double rate = Double.valueOf(req.getParameter("rate"));
+        String rateStr = req.getParameter("rate");
 
         String pathInfo = req.getPathInfo();
         String currencyPair = pathInfo.substring(1);
-        String baseCode = currencyPair.substring(0, 3);
-        String targetCode = currencyPair.substring(3);
+        String baseCurrencyCode = currencyPair.substring(0, 3);
+        String targetCurrencyCode = currencyPair.substring(3);
 
-        ExchangeUpdateDto exchangeUpdateDto = new ExchangeUpdateDto();
-        exchangeUpdateDto.setBaseCode(baseCode);
-        exchangeUpdateDto.setTargetCode(targetCode);
-        exchangeUpdateDto.setRate(rate);
+        if(!Validator.isValidCurrencyCode(baseCurrencyCode) || !Validator.isValidCurrencyCode(targetCurrencyCode)){
+            resp.setStatus(400);
 
-        exceptionDto = new ExceptionDto();
+            errorResponse = new ErrorResponse(400, "Ошибка, коды валют указаны в неверной форме");
+            resp.getWriter().write(jsonParser.toJson(errorResponse));
+            return;
+        }
+        if(rateStr == null || rateStr.isEmpty()) {
+            resp.setStatus(400);
+
+            errorResponse = new ErrorResponse(400, "Ошибка, отсутсвует поле rate");
+            resp.getWriter().write(jsonParser.toJson(errorResponse));
+            return;
+        }
+
+        Double rate;
+        try{
+            rate = Double.parseDouble(rateStr);
+        } catch (NumberFormatException e){
+            resp.setStatus(400);
+
+            errorResponse = new ErrorResponse(400, "Ошибка, параметр rate указан в неверном формате");
+            resp.getWriter().write(jsonParser.toJson(errorResponse));
+            return;
+        }
+
         try {
-            ExchangeRate exchangeRate = exchangeService.updateExchangeRate(exchangeUpdateDto);
+            CurrencyDao currencyDao = new CurrencyDao();
+            Currency baseCurrency = currencyDao.findCurrencyByCode(baseCurrencyCode);
+            Currency targetCurrency = currencyDao.findCurrencyByCode(targetCurrencyCode);
 
-            String json = new Gson().toJson(exchangeRate);
+            ExchangeRate exchangeRate = new ExchangeRate();
+            exchangeRate.setBaseCurrency(baseCurrency);
+            exchangeRate.setTargetCurrency(targetCurrency);
+            exchangeRate.setRate(rate);
+
+            Integer updatedExchangeRateId = exchangeService.updateExchangeRate(baseCurrency.getId(), targetCurrency.getId(), rate);
+            exchangeRate.setId(updatedExchangeRateId);
 
             resp.setStatus(200);
-            resp.getWriter().write(json);
+            resp.getWriter().write(jsonParser.toJson(exchangeRate));
         } catch (DataBaseAccessException e) {
-            exceptionDto.setStatusCode(500);
-            exceptionDto.setMessage("База данных недоступна");
-
             resp.setStatus(500);
-            resp.getWriter().write(String.valueOf(exceptionDto));
-        } catch (SQLException e) {
-            exceptionDto.setStatusCode(500);
-            exceptionDto.setMessage("Ошибка в SQL запросе");
-
-            resp.setStatus(500);
-            resp.getWriter().write(String.valueOf(exceptionDto));
-        } catch (QueryResultToCurrencyDtoParseException e) {
-            exceptionDto.setStatusCode(500);
-            exceptionDto.setMessage("Ошибка парсинга данных из БД в CurrencyDto");
-
-            resp.setStatus(500);
-            resp.getWriter().write(String.valueOf(exceptionDto));
+            errorResponse = new ErrorResponse(500, "Ошибка, база данных недоступна");
+            resp.getWriter().write(jsonParser.toJson(errorResponse));
+        } catch (CurrencyNotFoundException e) {
+            resp.setStatus(404);
+            errorResponse = new ErrorResponse(404, "Ошибка, валютная пара отсутствует в БД");
+            resp.getWriter().write(jsonParser.toJson(errorResponse));
         }
 
     }

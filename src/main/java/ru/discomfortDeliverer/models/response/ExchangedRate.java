@@ -1,8 +1,8 @@
-package ru.discomfortDeliverer.dto;
+package ru.discomfortDeliverer.models.response;
 
 import ru.discomfortDeliverer.models.Currency;
 
-public class ConvertedDto {
+public class ExchangedRate {
     private Currency baseCurrency;
     private Currency targetCurrency;
     private Double rate;
