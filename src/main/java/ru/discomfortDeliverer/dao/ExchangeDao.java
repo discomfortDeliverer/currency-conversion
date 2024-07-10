@@ -235,7 +235,7 @@ public class ExchangeDao {
                 exchangedRate.setBaseCurrency(from);
                 exchangedRate.setTargetCurrency(to);
 
-                Double roundedRate = Math.round((toRate / fromRate) * 100.0) / 100.0;
+                Double roundedRate = Math.round((toRate / fromRate) * 1000.0) / 1000.0;
                 exchangedRate.setRate(roundedRate);
 
                 Double convertedAmount = exchangedRate.getRate() * exchangedRate.getAmount();
