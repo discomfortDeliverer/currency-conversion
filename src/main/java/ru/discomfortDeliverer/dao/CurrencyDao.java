@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CurrencyDao {
-    private String url = "jdbc:sqlite:D:\\SQLite\\currencyConversion.db";
+    private String url = "jdbc:sqlite::resource:currencyConversion.db";
 
     public CurrencyDao(){
         try {
